@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking App</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <h1>Parking App</h1>
+    <div>
+        <h2>Actions</h2>
+        <button id="startParking">Start Parking</button>
+        <button id="stopParking">Stop Parking</button>
+    </div>
+    <footer>
+        &copy; 2025 Parking App. Designed with 💙 and 💚.
+    </footer>
+    <script>
+        document.getElementById("startParking").addEventListener("click", async () => {
+            const carId = prompt("Enter Car ID:");
+            const response = await fetch(`/api/Parking/startParking/${carId}`, { method: 'POST' });
+
+            if (response.ok) {
+                alert('Parking started!');
+            } else {
+                alert('Failed to start parking.');
+            }
+        });
+        document.getElementById("stopParking").addEventListener("click", async () => {
+            const carId = prompt("Enter Car ID:");
+            const response = await fetch(`/api/Parking/stopParking/${carId}`, { method: 'POST' });
+            if (response.ok) {
+                alert('Parking stopped!');
+            } else {
+                alert('Failed to stop parking.');
+            }
+        });
+    </script>
+</body>
+</html>
