@@ -12,6 +12,7 @@
     }
     public class ParkingService : IParkingService
     {
+        private readonly object _lock = new object();
         private readonly List<User> _users = new List<User>();
         private readonly List<Car> _cars = new List<Car>();
         private readonly List<ParkingPeriod> _parkingPeriods = new List<ParkingPeriod>();
@@ -19,27 +20,33 @@
         {
             var car = _cars.FirstOrDefault(c => c.CarId == carId);
             if (car == null || car.CurrentParkingPeriod != null)
-                throw new Exception("Car not found or already parking.");
+                throw new ParkingException("Car not found or already parking.");
             var parkingPeriod = new ParkingPeriod
             {
                 StartTime = DateTime.Now,
                 CarId = carId,
                 Car = car
             };
-            car.CurrentParkingPeriod = parkingPeriod;
-            _parkingPeriods.Add(parkingPeriod);
+            lock (_lock)
+            {
+                car.CurrentParkingPeriod = parkingPeriod;
+                _parkingPeriods.Add(parkingPeriod);
+            }
         }
         public void StopParking(int carId)
         {
             var car = _cars.FirstOrDefault(c => c.CarId == carId);
             if (car?.CurrentParkingPeriod == null)
-                throw new Exception("Car is not currently parking.");
+                throw new ParkingException("Car is not currently parking.");
             var period = car.CurrentParkingPeriod;
             period.EndTime = DateTime.Now;
-            decimal totalCost = CalculateCost(period.StartTime, period.EndTime.Value);
-            period.Cost = totalCost;
-            car.User.AccountBalance += totalCost;
-            car.CurrentParkingPeriod = null;
+            lock (_lock)
+            {
+                decimal totalCost = ParkingHelper.CalculateCost(period.StartTime, period.EndTime.Value);
+                period.Cost = totalCost;
+                car.User.AccountBalance += totalCost;
+                car.CurrentParkingPeriod = null;
+            }
         }
         public ParkingPeriod GetCurrentPeriod(int carId)
         {
@@ -57,26 +64,40 @@
         }
         public void RegisterUser(User user)
         {
-            _users.Add(user);
+            lock (_lock)
+            {
+                _users.Add(user);
+            }
         }
         public void RegisterCar(int userId, Car car)
         {
             var user = _users.FirstOrDefault(u => u.UserId == userId);
             if (user == null)
-                throw new Exception("User not found.");
-            car.UserId = userId;
-            car.User = user;
-            _cars.Add(car);
-            user.Cars.Add(car);
+                throw new ParkingException($"User with ID {userId} not found.");
+            lock (_lock)
+            {
+                car.UserId = userId;
+                car.User = user;
+                _cars.Add(car);
+                user.Cars.Add(car);
+            }
         }
-        private decimal CalculateCost(DateTime start, DateTime end)
+    }
+    public static class ParkingHelper
+    {
+        public static decimal CalculateCost(DateTime startTime, DateTime endTime)
         {
             decimal cost = 0;
-            for (var time = start; time < end; time = time.AddHours(1))
+            for (var time = startTime; time < endTime; time = time.AddHours(1))
             {
-                cost += time.Hour >= 8 && time.Hour < 18 ? 14 : 6;
+                cost += (time.Hour >= 8 && time.Hour < 18) ? 14 : 6;
             }
+
             return cost;
         }
+    }
+    public class ParkingException : Exception
+    {
+        public ParkingException(string message) : base(message) { }
     }
 }
